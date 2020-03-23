@@ -1,4 +1,6 @@
+from __future__ import annotations
 import typing as t
+import typing_extensions as tx
 import ast
 from functools import partial
 import logging
@@ -8,33 +10,33 @@ logger = logging.getLogger(__name__)
 
 
 class StrictVisitor(ast.NodeVisitor):
-    def __init__(self, ctx) -> None:
-        self.stack = [[]]
+    def __init__(self, ctx: ContextProtocol) -> None:
+        self.stack: t.List[t.List[t.Any]] = [[]]
         self.ctx = ctx
 
     # override
-    def generic_visit(self, node: ast.AST):
+    def generic_visit(self, node: ast.AST) -> None:
         method = "visit_" + node.__class__.__name__
         raise NotImplementedError(method)
 
-    def visit_Module(self, node: ast.Module):
+    def visit_Module(self, node: ast.Module) -> None:
         logger.debug("trace Module depth=%d %s", len(self.stack), node)
         assert len(node.body) == 1, "must be expr, len(node) == 1"
         self.visit(node.body[0])
 
-    def visit_Expr(self, node: ast.Expr):
+    def visit_Expr(self, node: ast.Expr) -> None:
         logger.debug("trace Expr depth=%d %s", len(self.stack), node)
         self.visit(node.value)
 
-    def visit_Name(self, node: ast.Name):
+    def visit_Name(self, node: ast.Name) -> None:
         logger.debug("trace Name depth=%d %s", len(self.stack), node)
         self.stack[-1].append(self.ctx.Name(node.id))
 
-    def visit_Constant(self, node: ast.Constant):
+    def visit_Constant(self, node: ast.Constant) -> None:
         logger.debug("trace Constant depth=%d %s", len(self.stack), node)
         self.stack[-1].append(self.ctx.Value(ast.literal_eval(node)))
 
-    def visit_BinOp(self, node: ast.BinOp):
+    def visit_BinOp(self, node: ast.BinOp) -> None:
         logger.debug(
             "trace BinOp depth=%d %s, %s, %s",
             len(self.stack),
@@ -50,7 +52,7 @@ class StrictVisitor(ast.NodeVisitor):
         method = getattr(left, node.op.__class__.__name__)
         self.stack[-1].append(method(right))
 
-    def visit_BoolOp(self, node: ast.BoolOp):
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
         # short circuit?
         logger.debug(
             "trace BoolOp depth=%d %s, %s, %s",
@@ -72,7 +74,7 @@ class StrictVisitor(ast.NodeVisitor):
         assert not self.stack.pop()  # empty list
         self.stack[-1].append(l_value)
 
-    def visit_Compare(self, node: ast.Compare):
+    def visit_Compare(self, node: ast.Compare) -> None:
         # short circuit?
         logger.debug(
             "trace Compare depth=%d %s, %s, %s",
@@ -100,7 +102,7 @@ class StrictVisitor(ast.NodeVisitor):
         assert not self.stack.pop()  # empty list
         self.stack[-1].append(acc)
 
-    def visit_Subscript(self, node: ast.Subscript):
+    def visit_Subscript(self, node: ast.Subscript) -> None:
         logger.debug(
             "trace Subscript depth=%d %s, %s, %s",
             len(self.stack),
@@ -113,13 +115,13 @@ class StrictVisitor(ast.NodeVisitor):
         self.stack.append([])
         self.visit(node.value)
         c = self.stack[-1].pop()
-        self.visit(node.slice.value)
+        self.visit(node.slice.value)  # type: ignore  # ???
         k = self.stack[-1].pop()
 
         assert not self.stack.pop()
         self.stack[-1].append(c[k])
 
-    def visit_Attribute(self, node: ast.Attribute):
+    def visit_Attribute(self, node: ast.Attribute) -> None:
         logger.debug(
             "trace Attribute depth=%d %s, %s, %s",
             len(self.stack),
@@ -136,7 +138,7 @@ class StrictVisitor(ast.NodeVisitor):
         assert not self.stack.pop()
         self.stack[-1].append(getattr(ob, node.attr))
 
-    def visit_Call(self, node: ast.Call):
+    def visit_Call(self, node: ast.Call) -> None:
         logger.debug(
             "trace Call depth=%d %s, %s, %s, %s",
             len(self.stack),
@@ -164,7 +166,7 @@ class StrictVisitor(ast.NodeVisitor):
 
         self.stack[-1].append(fn(*args, **kwargs))
 
-    def visit_Tuple(self, node: ast.Tuple):
+    def visit_Tuple(self, node: ast.Tuple) -> None:
         logger.debug(
             "trace Tuple depth=%d %s, %s", len(self.stack), node, node.elts,
         )
@@ -176,7 +178,7 @@ class StrictVisitor(ast.NodeVisitor):
         xs = self.stack.pop()
         self.stack[-1].append(self.ctx.Tuple(xs))
 
-    def visit_List(self, node: ast.List):
+    def visit_List(self, node: ast.List) -> None:
         logger.debug(
             "trace List depth=%d %s, %s", len(self.stack), node, node.elts,
         )
@@ -188,7 +190,7 @@ class StrictVisitor(ast.NodeVisitor):
         xs = self.stack.pop()
         self.stack[-1].append(self.ctx.List(xs))
 
-    def visit_Set(self, node: ast.Set):
+    def visit_Set(self, node: ast.Set) -> None:
         logger.debug(
             "trace Set depth=%d %s, %s", len(self.stack), node, node.elts,
         )
@@ -200,7 +202,7 @@ class StrictVisitor(ast.NodeVisitor):
         xs = self.stack.pop()
         self.stack[-1].append(self.ctx.Set(xs))
 
-    def visit_Dict(self, node: ast.Dict):
+    def visit_Dict(self, node: ast.Dict) -> None:
         logger.debug(
             "trace Dict depth=%d %s, %s, %s",
             len(self.stack),
@@ -211,7 +213,10 @@ class StrictVisitor(ast.NodeVisitor):
 
         self.stack.append([])
         for k in node.keys:
-            self.visit(k)
+            if k is None:
+                self.stack[-1].append(None)
+            else:
+                self.visit(k)
         ks = self.stack.pop()
 
         self.stack.append([])
@@ -222,7 +227,27 @@ class StrictVisitor(ast.NodeVisitor):
         self.stack[-1].append(self.ctx.Dict(ks, vs))
 
 
-class ContextForBuilding:
+class ContextProtocol(tx.Protocol):
+    def Name(self, name: str) -> Q:
+        ...
+
+    def Value(self, value: object) -> Q:
+        ...
+
+    def Tuple(self, xs: t.List[Q]) -> Q:
+        ...
+
+    def List(self, xs: t.List[Q]) -> Q:
+        ...
+
+    def Set(self, xs: t.List[Q]) -> Q:
+        ...
+
+    def Dict(self, ks: t.List[str], vs: t.List[Q]) -> Q:
+        ...
+
+
+class ContextForBuilding(ContextProtocol):
     def __init__(self, env: t.Dict[str, object]) -> None:
         self.env = env
         self.builder = QBuilder()
@@ -233,22 +258,22 @@ class ContextForBuilding:
     def Value(self, value: object) -> Q:
         return q(repr(value), builder=self.builder)
 
-    def Tuple(self, xs) -> Q:
+    def Tuple(self, xs: t.List[Q]) -> Q:
         return q("({args})", args=QArgs(self.builder, xs, {}))
 
-    def List(self, xs) -> Q:
+    def List(self, xs: t.List[Q]) -> Q:
         return q("[{args}]", args=QArgs(self.builder, xs, {}))
 
-    def Set(self, xs) -> Q:
+    def Set(self, xs: t.List[Q]) -> Q:
         return q("{{{args}}}", args=QArgs(self.builder, xs, {}))
 
-    def Dict(self, ks, vs) -> Q:
+    def Dict(self, ks: t.List[str], vs: t.List[Q]) -> Q:
         return q(
             "{{{args}}}", args=QArgs(self.builder, [], dict(zip(ks, vs)), sep=": ")
         )
 
 
-class ContextForEvaluation:
+class ContextForEvaluation(ContextProtocol):
     def __init__(self, env: t.Dict[str, object]) -> None:
         self.env = env
         self.builder = QEvaluator()
@@ -261,16 +286,16 @@ class ContextForEvaluation:
     def Value(self, value: object) -> Q:
         return q(value, builder=self.builder)
 
-    def Tuple(self, xs) -> Q:
+    def Tuple(self, xs: t.List[Q]) -> Q:
         return q(tuple(getattr(x, "val", x) for x in xs))
 
-    def List(self, xs) -> Q:
+    def List(self, xs: t.List[Q]) -> Q:
         return q([getattr(x, "val", x) for x in xs])
 
-    def Set(self, xs) -> Q:
+    def Set(self, xs: t.List[Q]) -> Q:
         return q(set(getattr(x, "val", x) for x in xs))
 
-    def Dict(self, ks, vs) -> Q:
+    def Dict(self, ks: t.List[str], vs: t.List[Q]) -> Q:
         return q({getattr(k, "val", k): getattr(v, "val", v) for k, v in zip(ks, vs)})
 
 
@@ -278,7 +303,7 @@ def literal_eval_plus(
     code: str,
     *,
     env: t.Optional[t.Dict[str, object]] = None,
-    create_ctx=ContextForEvaluation,
+    create_ctx: t.Callable[..., ContextProtocol] = ContextForEvaluation,
 ) -> object:
     t = ast.parse(code)
     v = StrictVisitor(create_ctx(env))
@@ -289,6 +314,7 @@ def literal_eval_plus(
 # TODO: remove
 if __name__ == "__main__":
 
+    @t.no_type_check
     def run(code: str, *, create_ctx, env=None):
         print(f"env   : {env}")
         print(f"input : {code}")
@@ -297,6 +323,7 @@ if __name__ == "__main__":
         v.visit(t)
         print(f"output: {v.stack[-1][-1]}")
 
+    @t.no_type_check
     def do_all(_run):
         _run("1")
         # BinOp

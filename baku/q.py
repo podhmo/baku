@@ -253,5 +253,9 @@ class QEvaluator(BuilderProtocol):
         return q.val
 
 
-def q(fmt: str, builder: BuilderProtocol = QBuilder(), **kwargs: object) -> Q:
-    return Q(builder, fmt, kwargs=kwargs)
+def q(
+    fmt_or_val: t.Union[str, object],
+    builder: BuilderProtocol = QBuilder(),
+    **kwargs: object
+) -> Q:
+    return Q(builder, fmt_or_val, kwargs=kwargs)
