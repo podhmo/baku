@@ -1,15 +1,4 @@
-import typing as t
 import pytest
-
-
-def _run(code: str, *, env: t.Optional[t.Dict[str, object]] = None) -> object:
-    import ast
-    from baku.minieval import StrictVisitor, ContextForEvaluation
-
-    t = ast.parse(code)
-    v = StrictVisitor(ContextForEvaluation(env))
-    v.visit(t)
-    return v.stack[-1][-1].val
 
 
 class ob:
@@ -60,11 +49,15 @@ class ob:
     ],
 )
 def test_(code, env):
+    from baku.minieval import literal_eval_plus as _run
+
     actual = _run(code, env=env)
     expected = eval(code, {"__builtins__": None}, env)
     assert actual == expected
 
 
 def test_ng():
+    from baku.minieval import literal_eval_plus as _run
+
     with pytest.raises(NameError):
         _run("__import__", env={"__import__": None})

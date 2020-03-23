@@ -274,6 +274,18 @@ class ContextForEvaluation:
         return q({getattr(k, "val", k): getattr(v, "val", v) for k, v in zip(ks, vs)})
 
 
+def literal_eval_plus(
+    code: str,
+    *,
+    env: t.Optional[t.Dict[str, object]] = None,
+    create_ctx=ContextForEvaluation,
+) -> object:
+    t = ast.parse(code)
+    v = StrictVisitor(create_ctx(env))
+    v.visit(t)
+    return v.stack[-1][-1].val
+
+
 # TODO: remove
 def run(code: str, *, create_ctx, env=None):
     print(f"env   : {env}")
