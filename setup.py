@@ -15,7 +15,7 @@ setup(
         #   5 - Production/Stable
         "Development Status :: 3 - Alpha",
     ],
-    python_requires=">3.5",
+    python_requires=">=3.7",
     packages=find_packages(exclude=["baku.tests"]),
     install_requires=install_requires,
     extras_require={"testing": tests_requires, "dev": dev_requires},
