@@ -155,5 +155,58 @@ class QBuilder:
         return q.__to_string__(self)
 
 
+class QEvaluator:
+    uop_mapping = {
+        "-": operator.neg,
+        "not": operator.not_,
+    }
+    bop_mapping = {
+        "and": lambda x, y: x and y,
+        "or": lambda x, y: x or y,
+        ">": operator.gt,
+        ">=": operator.ge,
+        "<": operator.lt,
+        "<=": operator.le,
+        "==": operator.eq,
+        "!=": operator.ne,
+        "is": operator.is_,
+        "is not": operator.is_not,
+        "in": lambda x, y: x in y,
+        "not in": lambda x, y: x not in y,
+        "+": operator.add,
+        "-": operator.sub,
+        "*": operator.mul,
+        "/": operator.truediv,
+    }
+
+    def uop(self, q: Q, name):
+        op = self.uop_mapping[name]
+        val = op(getattr(q, "val", q))
+        return q.__class__(self, val, kwargs=None)
+
+    def bop(self, q, name, right):
+        op = self.bop_mapping[name]
+        left_val = getattr(q, "val", q)
+        right_val = getattr(right, "val", right)
+        val = op(left_val, right_val)
+        return q.__class__(self, val, kwargs=None)
+
+    def getattr(self, q, name):
+        ob = getattr(q, "val", q)
+        return q.__class__(self, getattr(ob, name), kwargs=None)
+
+    def getindex(self, q, name):
+        ob = getattr(q, "val", q)
+        return q.__class__(self, ob[getattr(name, "val", name)], kwargs=None)
+
+    def call(self, q, args, kwargs):
+        args = [getattr(x, "val", x) for x in args]
+        kwargs = {k: getattr(x, "val", x) for k, x in kwargs.items()}
+        return q.__class__(self, q.val(*args, **kwargs), kwargs=None,)
+
+    def build(self, q):
+        return q.val
+
+
 def q(fmt, builder=QBuilder(), **kwargs):
     return Q(builder, fmt, kwargs=kwargs)
