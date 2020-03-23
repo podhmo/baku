@@ -21,8 +21,8 @@ setup(
     extras_require={"testing": tests_requires, "dev": dev_requires},
     tests_require=tests_requires,
     test_suite="baku.tests",
-#     entry_points="""
-#       [console_scripts]
-#       baku = baku.cli:main
-# """,
+    #     entry_points="""
+    #       [console_scripts]
+    #       baku = baku.cli:main
+    # """,
 )
