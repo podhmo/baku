@@ -352,6 +352,7 @@ if __name__ == "__main__":
         _run("0 < x and x <= 10", env={"x": 10})
         # dict
         _run("d['x'] + d['y']", env={"d": {"x": 10, "y": 20}})
+
         # object
         class ob:
             x = 10
