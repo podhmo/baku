@@ -2,7 +2,7 @@ import typing as t
 import ast
 from functools import partial
 import logging
-from .q import QEvaluator, QBuilder, q, Q, QArgs
+from baku.q import QEvaluator, QBuilder, q, Q, QArgs
 
 logger = logging.getLogger(__name__)
 
@@ -287,16 +287,16 @@ def literal_eval_plus(
 
 
 # TODO: remove
-def run(code: str, *, create_ctx, env=None):
-    print(f"env   : {env}")
-    print(f"input : {code}")
-    t = ast.parse(code)
-    v = StrictVisitor(create_ctx(env))
-    v.visit(t)
-    print(f"output: {v.stack[-1][-1]}")
+if __name__ == "__main__":
 
+    def run(code: str, *, create_ctx, env=None):
+        print(f"env   : {env}")
+        print(f"input : {code}")
+        t = ast.parse(code)
+        v = StrictVisitor(create_ctx(env))
+        v.visit(t)
+        print(f"output: {v.stack[-1][-1]}")
 
-def main():
     def do_all(_run):
         _run("1")
         # BinOp
