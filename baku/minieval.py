@@ -34,7 +34,22 @@ class StrictVisitor(ast.NodeVisitor):
 
     def visit_Constant(self, node: ast.Constant) -> None:
         logger.debug("trace Constant depth=%d %s", len(self.stack), node)
-        self.stack[-1].append(self.ctx.Value(ast.literal_eval(node)))
+        self.stack[-1].append(self.ctx.Value(node.value))
+
+    # for python < 3.8
+    def visit_NameConstant(self, node: ast.NameConstant) -> None:
+        logger.debug("trace NameConstant depth=%d %s", len(self.stack), node)
+        self.stack[-1].append(self.ctx.Value(node.value))
+
+    # for python < 3.8
+    def visit_Num(self, node: ast.Num) -> None:
+        logger.debug("trace Num depth=%d %s", len(self.stack), node)
+        self.stack[-1].append(self.ctx.Value(node.n))
+
+    # for python < 3.8
+    def visit_Str(self, node: ast.Str) -> None:
+        logger.debug("trace Str depth=%d %s", len(self.stack), node)
+        self.stack[-1].append(self.ctx.Value(node.s))
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
         logger.debug(
