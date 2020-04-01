@@ -3,12 +3,19 @@ from prestring.python import PythonModule, Symbol
 from prestring.codeobject import CodeObjectModuleMixin
 from .detect import Result, Object, generate_annotations, TypeInfo
 
+# TODO: list
+# TODO: typing
+# TODO: query
+# TODO: custom query attribute (with q)
+
 
 class Module(PythonModule, CodeObjectModuleMixin):
     pass
 
 
-AnnotationMap = t.Dict[str, t.Any]  # {"": {"before": {"name": ""}, "after": {"name": ""}}}
+AnnotationMap = t.Dict[
+    str, t.Any
+]  # {"": {"before": {"name": ""}, "after": {"name": ""}}}
 
 
 def get_name_map(
