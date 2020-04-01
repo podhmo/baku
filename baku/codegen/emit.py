@@ -65,7 +65,7 @@ def emit(
         bool: g.GraphQLBool,
     }
 
-    name_map = get_name_map(result, name="Person", annotations=annotations)
+    name_map = get_name_map(result, name="Query", annotations=annotations)
 
     # todo: use lazy string
     for info in result.history:
