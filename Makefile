@@ -30,4 +30,8 @@ upload:
 	twine check dist/baku-$(shell cat VERSION)*
 	twine upload dist/baku-$(shell cat VERSION)*
 
+examples:
+	$(MAKE) -C examples
+.PHONY: examples
+
 .PHONY: test ci format lint typing mypy build upload
