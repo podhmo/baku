@@ -110,11 +110,11 @@ class Primitive:
         return f"<Primitive type={self.type!r} path={self.path!r}>"
 
 
-LIST_NODE = ":list:"
-ZERO_NODE = ":zero:"
+LIST_NODE_PATH = "[]"
+ZERO_NODE_PATH = "∅"
 
 SENTINEL = object()
-ZERO_INFO = Object(tuple(), path=[ZERO_NODE], props={}, raw={})
+ZERO_INFO = Object(tuple(), path=[ZERO_NODE_PATH], props={}, raw={})
 
 
 class Result:
@@ -267,7 +267,7 @@ class Detector:
     def detect_list(
         self, d: t.List[JSONType], *, path: Path, result: Result
     ) -> TypeInfo:
-        path.append(LIST_NODE)
+        path.append(LIST_NODE_PATH)
         inner_info = self.detect_dict_many(d, path=path, result=result)
         path.pop()
         return result.add(
@@ -341,7 +341,9 @@ def generate_annotations(
     from inflection import pluralize, singularize, camelize
 
     ns = NameStore()
-    r = {ZERO_NODE: {"before": {"name": _zero_name}, "after": {"name": _zero_name}}}
+    r = {
+        ZERO_NODE_PATH: {"before": {"name": _zero_name}, "after": {"name": _zero_name}}
+    }
 
     for info in result.history:
         if info.as_named_node:
@@ -352,14 +354,14 @@ def generate_annotations(
                 name = _zero_name
             elif conflict_strategy == "use_fullname":
                 path = info.path[:]
-                if path and path == LIST_NODE:
+                if path and path == LIST_NODE_PATH:
                     path = path[:-1]
                 if path and pluralize(path[-1]) == path[-1]:
                     path[-1] = singularize(path[-1])
                 name = "_".join(camelize(x) for x in path)
             else:
                 name = info.path[-1] if info.path else toplevel_name
-                if name == LIST_NODE:
+                if name == LIST_NODE_PATH:
                     name = info.path[-2]
                 if pluralize(name) == name:
                     name = singularize(name)
