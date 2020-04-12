@@ -6,7 +6,7 @@ from ._module import Symbol, Module
 # TODO: typing
 # TODO: query
 # TODO: custom query attribute (with q)
-
+# TODO: annotated as same type
 
 AnnotationMap = t.Dict[
     str, t.Any

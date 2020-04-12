@@ -1,0 +1,9 @@
+--- 08empty-and-not-empty-list/emit.py	2020-04-12 16:35:34.000000000 +0900
++++ 08empty-and-not-empty-list/emit2.py	2020-04-12 16:40:03.000000000 +0900
+@@ -5,5 +5,5 @@
+ mother = {"name": "bar", "age": 40}
+ me = {"name": "me", "age": 20, "parents": [father, mother]}
+ you = {"name": "you", "age": 20, "parents": []}
+-result = detect({"members": [you, me], "members2": [me, you]})
++result = detect({"members2": [me, you], "members": [you, me]})
+ print(emit(result))
