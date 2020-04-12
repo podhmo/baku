@@ -1,8 +1,7 @@
 import dataclasses
 import typing as t
-from prestring.python import PythonModule, Symbol
-from prestring.codeobject import CodeObjectModuleMixin
 from .detect import Result, Object, generate_annotations, TypeInfo
+from ._module import Symbol, Module
 
 # TODO: list
 # TODO: typing
