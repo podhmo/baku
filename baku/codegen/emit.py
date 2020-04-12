@@ -1,3 +1,4 @@
+import dataclasses
 import typing as t
 from prestring.python import PythonModule, Symbol
 from prestring.codeobject import CodeObjectModuleMixin
@@ -18,18 +19,12 @@ AnnotationMap = t.Dict[
 ]  # {"": {"before": {"name": ""}, "after": {"name": ""}}}
 
 
-def get_name_map(
-    result: Result, *, name: str, annotations: t.Optional[AnnotationMap] = None
-):
-    default_annotations = generate_annotations(result, toplevel_name=name)
-    name_map = {
-        k: v.get("after", v["before"])["name"] for k, v in default_annotations.items()
-    }
-    if annotations is not None:
-        name_map.update(
-            {k: v.get("after", v["before"])["name"] for k, v in annotations.items()}
-        )
-    return name_map
+@dataclasses.dataclass
+class Context:
+    m: Module
+    g: Symbol
+    type_map: t.Dict[str, str]
+    name_map: t.Dict[str, t.Type[t.Any]]
 
 
 def to_graphql_type(
@@ -52,10 +47,22 @@ def emit(
     result: Result,
     *,
     m: t.Optional[Module] = None,
+    toplevel_name: str = "Query",
     annotations: t.Optional[AnnotationMap] = None
 ) -> Module:
     m = m or Module()
     m.toplevel = m.submodule()
+    ctx = build_context(m, result, annotations=annotations, toplevel_name=toplevel_name)
+    return emit_from_context(ctx, result)
+
+
+def build_context(
+    m: Module,
+    result: Result,
+    *,
+    toplevel_name: str = "Query",
+    annotations: t.Optional[AnnotationMap] = None
+) -> Context:
     g = m.toplevel.import_("graphql", as_="g")
     m.sep()
 
@@ -65,7 +72,22 @@ def emit(
         bool: g.GraphQLBool,
     }
 
-    name_map = get_name_map(result, name="Query", annotations=annotations)
+    default_annotations = generate_annotations(result, toplevel_name=toplevel_name)
+    name_map = {
+        k: v.get("after", v["before"])["name"] for k, v in default_annotations.items()
+    }
+    if annotations is not None:
+        name_map.update(
+            {k: v.get("after", v["before"])["name"] for k, v in annotations.items()}
+        )
+    return Context(m=m, g=g, type_map=type_map, name_map=name_map)
+
+
+def emit_from_context(ctx: Context, result: Result) -> Module:
+    m = ctx.m
+    g = ctx.g
+    name_map = ctx.name_map
+    type_map = ctx.type_map
 
     # todo: use lazy string
     for info in result.history:
