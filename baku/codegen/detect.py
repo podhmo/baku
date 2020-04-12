@@ -354,7 +354,7 @@ def generate_annotations(
                 name = _zero_name
             elif conflict_strategy == "use_fullname":
                 path = info.path[:]
-                if path and path == LIST_NODE_PATH:
+                if path and path[-1] == LIST_NODE_PATH:
                     path = path[:-1]
                 if path and pluralize(path[-1]) == path[-1]:
                     path[-1] = singularize(path[-1])
