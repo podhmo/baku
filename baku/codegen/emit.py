@@ -9,36 +9,9 @@ from ._module import Symbol, Module
 # TODO: custom query attribute (with q)
 
 
-class Module(PythonModule, CodeObjectModuleMixin):
-    pass
-
-
 AnnotationMap = t.Dict[
     str, t.Any
 ]  # {"": {"before": {"name": ""}, "after": {"name": ""}}}
-
-
-@dataclasses.dataclass
-class Context:
-    g: Symbol
-    type_map: t.Dict[str, str]
-    name_map: t.Dict[str, t.Type[t.Any]]
-
-
-def to_graphql_type(
-    info: TypeInfo,
-    *,
-    type_map: t.Dict[t.Type[t.Any], t.Type[t.Any]],
-    name_map: t.Dict[str, str],
-    g: Symbol
-) -> t.Any:
-    if hasattr(info, "base") and info.base is t.Optional:
-        return type_map[info.item.type]
-
-    if hasattr(info, "type"):
-        return g.GraphQLNonNull(type_map[info.type])
-    else:
-        return Symbol(name_map["/".join(info.path)])  # xxx
 
 
 def emit(
@@ -46,17 +19,21 @@ def emit(
     *,
     m: t.Optional[Module] = None,
     toplevel_name: str = "Query",
-    annotations: t.Optional[AnnotationMap] = None
+    annotations: t.Optional[AnnotationMap] = None,
 ) -> Module:
+    emitter = get_emitter(m=m)
+    ctx = build_context(
+        emitter.g, result, annotations=annotations, toplevel_name=toplevel_name
+    )
+    return emitter.emit(ctx, result)
 
+
+def get_emitter(*, m: t.Optional[Module] = None) -> "Emitter":
     m = m or Module()
     m.toplevel = m.submodule()
-    g = m.toplevel.import_("graphql", as_="g")
+    g = m.toplevel.import_("graphql", as_="g")  # xxx
     m.sep()
-
-    ctx = build_context(g, result, annotations=annotations, toplevel_name=toplevel_name)
-    Emitter(ctx).emit(m, result)
-    return m
+    return Emitter(m, g)
 
 
 def build_context(
@@ -64,8 +41,8 @@ def build_context(
     result: Result,
     *,
     toplevel_name: str = "Query",
-    annotations: t.Optional[AnnotationMap] = None
-) -> Context:
+    annotations: t.Optional[AnnotationMap] = None,
+) -> "Context":
     type_map = {
         str: g.GraphQLString,
         int: g.GraphQLInt,
@@ -83,15 +60,33 @@ def build_context(
     return Context(g=g, type_map=type_map, name_map=name_map)
 
 
-class Emitter:
-    def __init__(self, ctx: Context):
-        self.ctx = ctx
+@dataclasses.dataclass
+class Context:
+    g: Symbol  # todo: omit
+    type_map: t.Dict[str, str]
+    name_map: t.Dict[str, t.Type[t.Any]]
 
-    def emit(self, m: Module, result: Result) -> None:
-        ctx = self.ctx
-        g = ctx.g
+    def to_graphql_type(self, info: TypeInfo) -> t.Any:
+        if hasattr(info, "base") and info.base is t.Optional:
+            return self.type_map[info.item.type]
+
+        if hasattr(info, "type"):
+            return self.g.GraphQLNonNull(self.type_map[info.type])
+        else:
+            return Symbol(self.name_map["/".join(info.path)])  # xxx
+
+
+class Emitter:
+    def __init__(self, m: Module, g: Symbol):
+        self.m = m
+        self.g = g
+
+    def emit(self, ctx: Context, result: Result) -> Module:
+        m = self.m
+        g = self.g
+        result = result
+
         name_map = ctx.name_map
-        type_map = ctx.type_map
 
         # todo: use lazy string
         for info in result.history:
@@ -108,11 +103,7 @@ class Emitter:
                         m.stmt(
                             "{!r}: {},",
                             fieldname,
-                            g.GraphQLField(
-                                to_graphql_type(
-                                    field, type_map=type_map, name_map=name_map, g=g
-                                )
-                            ),
+                            g.GraphQLField(ctx.to_graphql_type(field)),
                         )
                 m.stmt("}")
             m.stmt(")")
