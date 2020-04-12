@@ -66,14 +66,17 @@ class Context:
     type_map: t.Dict[str, str]
     name_map: t.Dict[str, t.Type[t.Any]]
 
-    def to_graphql_type(self, info: TypeInfo) -> t.Any:
+    def graphql_type(self, info: TypeInfo) -> t.Any:
         if hasattr(info, "base") and info.base is t.Optional:
             return self.type_map[info.item.type]
 
         if hasattr(info, "type"):
             return self.g.GraphQLNonNull(self.type_map[info.type])
         else:
-            return Symbol(self.name_map["/".join(info.path)])  # xxx
+            return Symbol(self.node_name(info))
+
+    def node_name(self, info: TypeInfo) -> str:
+        return self.name_map["/".join(info.path)]
 
 
 class Emitter:
@@ -86,14 +89,12 @@ class Emitter:
         g = self.g
         result = result
 
-        name_map = ctx.name_map
-
         # todo: use lazy string
         for info in result.history:
             if not isinstance(info, Object):
                 continue
 
-            name = name_map["/".join(info.path)]  # xxx
+            name = ctx.node_name(info)  # xxx
             m.stmt("{} = {}(", name, g.GraphQLObjectType)
             with m.scope():
                 m.stmt("{!r},", name)
@@ -103,7 +104,7 @@ class Emitter:
                         m.stmt(
                             "{!r}: {},",
                             fieldname,
-                            g.GraphQLField(ctx.to_graphql_type(field)),
+                            g.GraphQLField(ctx.graphql_type(field)),
                         )
                 m.stmt("}")
             m.stmt(")")
