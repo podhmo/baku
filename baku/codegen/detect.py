@@ -352,21 +352,27 @@ def generate_annotations(
                 getattr(info, "base", None) == ListC.keywords["base"]
             ):
                 name = _zero_name
+            elif not info.path:
+                name = toplevel_name
             elif conflict_strategy == "use_fullname":
-                path = info.path[:]
+                path = [x for x in info.path if x != LIST_NODE_PATH]
                 if path and path[-1] == LIST_NODE_PATH:
                     path = path[:-1]
                 if path and pluralize(path[-1]) == path[-1]:
                     path[-1] = singularize(path[-1])
                 name = "_".join(camelize(x) for x in path)
-            else:
-                name = info.path[-1] if info.path else toplevel_name
+            elif conflict_strategy == "use_namestore":
+                name = info.path[-1]
                 if name == LIST_NODE_PATH:
                     name = info.path[-2]
                 if pluralize(name) == name:
                     name = singularize(name)
                 ns[info] = name
                 name = camelize(ns[info])
+            else:
+                raise RuntimeError(
+                    f"unsupported conflict strategy, {conflict_strategy}"
+                )
             r["/".join(info.path)] = {"before": {"name": name}}
 
     return r

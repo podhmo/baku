@@ -1,5 +1,5 @@
 from baku.codegen.detect import detect
-from baku.codegen.emit import emit
+from baku.codegen.emit import emit, Config
 
 father = {"name": "foo", "age": 40}
 mother = {"name": "bar", "age": 40}
@@ -9,4 +9,4 @@ result = detect(me)
 annotations = {
     "father": {"before": {"name": "Father"}, "after": {"name": "Person"}},
 }
-print(emit(result, annotations=annotations))
+print(emit(result, config=Config(annotations=annotations)))

@@ -13,17 +13,19 @@ AnnotationMap = t.Dict[
 ]  # {"": {"before": {"name": ""}, "after": {"name": ""}}}
 
 
+@dataclasses.dataclass
+class Config:
+    toplevel_name: str = "Query"
+    conflict_strategy: t.Literal["use_namestore", "use_fullname"] = "use_namestore"
+    annotations: t.Optional[AnnotationMap] = None
+
+
 def emit(
-    result: Result,
-    *,
-    m: t.Optional[Module] = None,
-    toplevel_name: str = "Query",
-    annotations: t.Optional[AnnotationMap] = None,
+    result: Result, *, m: t.Optional[Module] = None, config: t.Optional[Config] = None,
 ) -> Module:
+    config = config or Config()
     emitter = get_emitter(m=m)
-    ctx = build_context(
-        emitter.g, result, annotations=annotations, toplevel_name=toplevel_name
-    )
+    ctx = build_context(emitter.g, result, config=config)
     return emitter.emit(ctx, result)
 
 
@@ -35,26 +37,27 @@ def get_emitter(*, m: t.Optional[Module] = None) -> "Emitter":
     return Emitter(m, g)
 
 
-def build_context(
-    g: Symbol,
-    result: Result,
-    *,
-    toplevel_name: str = "Query",
-    annotations: t.Optional[AnnotationMap] = None,
-) -> "Context":
+def build_context(g: Symbol, result: Result, *, config: Config,) -> "Context":
     type_map = {
         str: g.GraphQLString,
         int: g.GraphQLInt,
         bool: g.GraphQLBool,
     }
 
-    default_annotations = generate_annotations(result, toplevel_name=toplevel_name)
+    default_annotations = generate_annotations(
+        result,
+        toplevel_name=config.toplevel_name,
+        conflict_strategy=config.conflict_strategy,
+    )
     name_map = {
         k: v.get("after", v["before"])["name"] for k, v in default_annotations.items()
     }
-    if annotations is not None:
+    if config.annotations is not None:
         name_map.update(
-            {k: v.get("after", v["before"])["name"] for k, v in annotations.items()}
+            {
+                k: v.get("after", v["before"])["name"]
+                for k, v in config.annotations.items()
+            }
         )
     return Context(g=g, type_map=type_map, name_map=name_map)
 
