@@ -1,10 +1,11 @@
 import graphql as g
 
 
-_Zero = g.GraphQLObjectType(
-    '_Zero',
+Parent = g.GraphQLObjectType(
+    'Parent',
     lambda: {
-
+        'name': g.GraphQLField(g.GraphQLNonNull(g.GraphQLString)),
+        'age': g.GraphQLField(g.GraphQLNonNull(g.GraphQLInt)),
     }
 )
 Query = g.GraphQLObjectType(
@@ -12,6 +13,6 @@ Query = g.GraphQLObjectType(
     lambda: {
         'name': g.GraphQLField(g.GraphQLNonNull(g.GraphQLString)),
         'age': g.GraphQLField(g.GraphQLNonNull(g.GraphQLInt)),
-        'parents': g.GraphQLField(_Zero),
+        'parents': g.GraphQLField(g.GraphQLList(Parent)),
     }
 )

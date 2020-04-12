@@ -3,7 +3,6 @@ import typing as t
 from .detect import Result, Object, generate_annotations, TypeInfo
 from ._module import Symbol, Module
 
-# TODO: list
 # TODO: typing
 # TODO: query
 # TODO: custom query attribute (with q)
@@ -67,8 +66,13 @@ class Context:
     name_map: t.Dict[str, t.Type[t.Any]]
 
     def graphql_type(self, info: TypeInfo) -> t.Any:
-        if hasattr(info, "base") and info.base is t.Optional:
-            return self.type_map[info.item.type]
+        if hasattr(info, "base"):
+            if info.base is t.Optional:
+                return self.type_map[info.item.type]
+            elif info.base is t.List:
+                return self.g.GraphQLList(self.graphql_type(info.item))
+            else:
+                raise RuntimeError(f"unsupported base, {info.base!r}")
 
         if hasattr(info, "type"):
             return self.g.GraphQLNonNull(self.type_map[info.type])
