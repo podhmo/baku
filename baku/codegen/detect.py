@@ -16,6 +16,8 @@ JSONType = t.Union[int, float, str, bool, t.List["JSONType"], t.Dict[str, "JSONT
 
 
 class Object:
+    as_named_node = True
+
     def __init__(
         self, sig: t.Any, *, path: Path, props: t.Dict, raw: t.Dict[t.Any, t.Any]
     ) -> None:
@@ -39,6 +41,8 @@ class Object:
 
 
 class Container:
+    as_named_node = True
+
     def __init__(
         self,
         sig: t.Any,
@@ -77,6 +81,8 @@ OptionalC = partial(Container, base=t.Optional)
 
 
 class Primitive:
+    as_named_node = False
+
     def __init__(
         self,
         sig: t.Any,
@@ -104,8 +110,11 @@ class Primitive:
         return f"<Primitive type={self.type!r} path={self.path!r}>"
 
 
+LIST_NODE = ":list:"
+ZERO_NODE = ":zero:"
+
 SENTINEL = object()
-ZERO = Object(tuple(), path=":zero:", props={}, raw={})
+ZERO_INFO = Object(tuple(), path=[ZERO_NODE], props={}, raw={})
 
 
 class Result:
@@ -144,6 +153,8 @@ class Detector:
             return self.detect_dict(d, path=path, result=result)
         elif isinstance(d, (list, tuple)):
             return self.detect_list(d, path=path, result=result)
+        elif d is None:
+            return self.detect_null(d, path=path, result=result)
         else:
             return self.detect_primitive(d, path=path, result=result)
 
@@ -165,7 +176,7 @@ class Detector:
         seen: t.Dict[int, TypeInfo] = {}
 
         modified = False
-        ma = ZERO
+        ma = ZERO_INFO
         union_members = []
 
         # TODO: update signature?
@@ -214,6 +225,9 @@ class Detector:
                 if other.sig != ma.sig and other.sig not in result._dead_set:
                     result._dead_set.add(other.sig)
             result.add(uid, ma)
+        elif ma is ZERO_INFO:  # xx
+            uid = result._uid_map[ma.sig]
+            result.add(uid, ma)
 
         # FIXME: union support
         if union_members:
@@ -248,13 +262,12 @@ class Detector:
         if info is not SENTINEL:
             info._others.append((path[:], d))
             return result.registry[uid]
-
         return result.add(uid, Object(sig, path=path[:], raw=d, props=props))
 
     def detect_list(
         self, d: t.List[JSONType], *, path: Path, result: Result
     ) -> TypeInfo:
-        path.append(":item:")
+        path.append(LIST_NODE)
         inner_info = self.detect_dict_many(d, path=path, result=result)
         path.pop()
         return result.add(
@@ -264,8 +277,8 @@ class Detector:
     def detect_primitive(self, d: t.Any, *, path: Path, result: Result) -> TypeInfo:
         sig = type(d)
         uid = result._uid_map[sig]
-        if uid in result:
-            cached = result.registry[uid]
+        cached = result.get(uid, default=None)
+        if cached is not None:
             if cached.path == path:
                 return cached
             else:
@@ -276,6 +289,14 @@ class Detector:
                 return new
 
         return result.add(uid, Primitive(sig, path=path[:], raw=d, type_=type(d)))
+
+    def detect_null(self, d: t.Any, *, path: Path, result: Result) -> TypeInfo:
+        sig = type(d)
+        uid = result._uid_map[sig]
+        cached = result.get(uid, default=None)
+        if cached is not None:
+            return cached
+        return result.add(uid, ZERO_INFO)
 
 
 @dataclasses.dataclass
@@ -293,7 +314,10 @@ class Config:
 def detect(d: JSONType, *, detector=Detector()):
     path: Path = []
     result = Result()
-    detector.detect(d, path=path, result=result)
+    if isinstance(d, (list, tuple)):
+        detector.detect_dict_many(d, path=path, result=result)
+    else:
+        detector.detect(d, path=path, result=result)
     return result
 
 
@@ -307,31 +331,40 @@ def show(d):
 
 
 def generate_annotations(
-    result: Result, *, use_fullname: bool = False, toplevel_name: str = "Toplevel"
+    result: Result,
+    *,
+    conflict_strategy: t.Literal["use_namestore", "use_fullname"] = "use_namestore",
+    toplevel_name: str = "Toplevel",
+    _zero_name: str = "_Zero",
 ) -> t.Dict[str, t.Dict[str, t.Any]]:
     from prestring.utils import NameStore
     from inflection import pluralize, singularize, camelize
 
     ns = NameStore()
-    r = {}
+    r = {ZERO_NODE: {"before": {"name": _zero_name}, "after": {"name": _zero_name}}}
 
     for info in result.history:
-        if isinstance(info, Object):
-            if use_fullname:
+        if info.as_named_node:
+            name = None
+            if info is ZERO_INFO or (
+                getattr(info, "base", None) == ListC.keywords["base"]
+            ):
+                name = _zero_name
+            elif conflict_strategy == "use_fullname":
                 path = info.path[:]
-                if path and path[-1].startswith(":"):
+                if path and path == LIST_NODE:
                     path = path[:-1]
                 if path and pluralize(path[-1]) == path[-1]:
                     path[-1] = singularize(path[-1])
-                r["/".join(info.path)] = {
-                    "before": {"name": "_".join(camelize(x) for x in path)}
-                }
+                name = "_".join(camelize(x) for x in path)
             else:
                 name = info.path[-1] if info.path else toplevel_name
-                if name.startswith(":"):
+                if name == LIST_NODE:
                     name = info.path[-2]
                 if pluralize(name) == name:
                     name = singularize(name)
                 ns[info] = name
-                r["/".join(info.path)] = {"before": {"name": camelize(ns[info])}}
+                name = camelize(ns[info])
+            r["/".join(info.path)] = {"before": {"name": name}}
+
     return r
