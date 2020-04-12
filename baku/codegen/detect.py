@@ -150,23 +150,23 @@ class Detector:
     # todo: many
     def detect(self, d: JSONType, *, path: Path, result: Result) -> TypeInfo:
         if isinstance(d, dict):
-            return self.detect_dict(d, path=path, result=result)
+            return self.detect_from_dict(d, path=path, result=result)
         elif isinstance(d, (list, tuple)):
-            return self.detect_list(d, path=path, result=result)
+            return self.detect_from_list(d, path=path, result=result)
         elif d is None:
-            return self.detect_null(d, path=path, result=result)
+            return self.detect_from_null(d, path=path, result=result)
         else:
-            return self.detect_primitive(d, path=path, result=result)
+            return self.detect_from_primitive(d, path=path, result=result)
 
-    # def detect_many(self, d: JSONType, *, path: Path, result: Result) -> TypeInfo:
+    # def detect_from_many(self, d: JSONType, *, path: Path, result: Result) -> TypeInfo:
     #     if isinstance(d, dict):
-    #         return self.detect_dict_many(d, path=path, result=result)
+    #         return self.detect_from_dict_many(d, path=path, result=result)
     #     elif isinstance(d, (list, tuple)):
-    #         return self.detect_list_many(d, path=path, result=result)
+    #         return self.detect_from_list_many(d, path=path, result=result)
     #     else:
-    #         return self.detect_primitive_many(d, path=path, result=result)
+    #         return self.detect_from_primitive_many(d, path=path, result=result)
 
-    def detect_dict_many(
+    def detect_from_dict_many(
         self,
         xs: t.Collection[t.Dict[JSONType, JSONType]],
         *,
@@ -182,11 +182,11 @@ class Detector:
         # TODO: update signature?
         # TODO: union
         if len(xs) > 0:
-            ma = self.detect_dict(xs[0], path=path, result=result)
+            ma = self.detect_from_dict(xs[0], path=path, result=result)
             seen[id(ma)] = ma
 
         for x in self.config.iterate_candidates(xs, from_=1):
-            info = self.detect_dict(x, path=path, result=result)
+            info = self.detect_from_dict(x, path=path, result=result)
 
             if id(info) in seen:
                 continue
@@ -238,7 +238,7 @@ class Detector:
         #         print("@", id(x), x)
         return ma
 
-    def detect_dict(
+    def detect_from_dict(
         self, d: t.Dict[JSONType, JSONType], *, path: Path, result: Result
     ) -> TypeInfo:
         props = {}
@@ -264,17 +264,19 @@ class Detector:
             return result.registry[uid]
         return result.add(uid, Object(sig, path=path[:], raw=d, props=props))
 
-    def detect_list(
+    def detect_from_list(
         self, d: t.List[JSONType], *, path: Path, result: Result
     ) -> TypeInfo:
         path.append(LIST_NODE_PATH)
-        inner_info = self.detect_dict_many(d, path=path, result=result)
+        inner_info = self.detect_from_dict_many(d, path=path, result=result)
         path.pop()
         return result.add(
             uid, ListC((list, inner_info.sig), item=inner_info, path=path[:], raw=d)
         )
 
-    def detect_primitive(self, d: t.Any, *, path: Path, result: Result) -> TypeInfo:
+    def detect_from_primitive(
+        self, d: t.Any, *, path: Path, result: Result
+    ) -> TypeInfo:
         sig = type(d)
         uid = result._uid_map[sig]
         cached = result.get(uid, default=None)
@@ -290,7 +292,7 @@ class Detector:
 
         return result.add(uid, Primitive(sig, path=path[:], raw=d, type_=type(d)))
 
-    def detect_null(self, d: t.Any, *, path: Path, result: Result) -> TypeInfo:
+    def detect_from_null(self, d: t.Any, *, path: Path, result: Result) -> TypeInfo:
         sig = type(d)
         uid = result._uid_map[sig]
         cached = result.get(uid, default=None)
@@ -315,7 +317,7 @@ def detect(d: JSONType, *, detector=Detector()):
     path: Path = []
     result = Result()
     if isinstance(d, (list, tuple)):
-        detector.detect_dict_many(d, path=path, result=result)
+        detector.detect_from_dict_many(d, path=path, result=result)
     else:
         detector.detect(d, path=path, result=result)
     return result
